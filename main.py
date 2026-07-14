@@ -1,35 +1,120 @@
-from machine import Pin, PWM, I2C
+import ubluetooth
+import uasyncio as asyncio
+import neopixel
+import time
+import ustruct
 
-#SETTINGS--------------------------------------------------------------------------------------------
+# датчик цвета ----------------------------------------------------------------------------------------
 
-# Левый драйвер (канал A)
-PWMA_pin = 
-AIN1_pin = 
-AIN2_pin = 
-# Правый драйвер (канал B)
-PWMB_pin = 
-BIN1_pin = 
-BIN2_pin = 
-# Общий STBY (включение драйверов)
-STBY_pin = 
+class TCS34725:
+    # Константы регистров
+    _COMMAND_BIT = const(0x80)
+    _COMMAND_AUTO_INC = const(0x20)
+    _REG_ENABLE = const(0x00)
+    _REG_ATIME = const(0x01)
+    _REG_AILT = const(0x04)
+    _REG_AIHT = const(0x06)
+    _REG_ID = const(0x12)
+    _REG_APERS = const(0x0C)
+    _REG_CONTROL = const(0x0F)
+    _REG_STATUS = const(0x13)
+    _REG_CDATA = const(0x14)
+    _REG_RDATA = const(0x16)
+    _REG_GDATA = const(0x18)
+    _REG_BDATA = const(0x1A)
+    _ENABLE_AIEN = const(0x10)
+    _ENABLE_WEN = const(0x08)
+    _ENABLE_AEN = const(0x02)
+    _ENABLE_PON = const(0x01)
+    _GAINS = (1, 4, 16, 60)
 
-# === ПИНЫ ДЛЯ СЕРВОПРИВОДОВ ===
-SERVO_GRIP =    # захват (открытие/закрытие)
-SERVO_LIFT =    # подъём/опускание
+    def __init__(self, i2c, address=0x29):
+        self.i2c = i2c
+        self.address = address
+        self._active = False
+        self._integration_time = 2.4
+        sensor_id = self._read8(self._REG_ID)
+        if sensor_id not in (0x4D, 0x10):
+            raise RuntimeError("TCS34725 не найден (ID=0x{:02X})".format(sensor_id))
+        self.integration_time(2.4)
+        self.gain(4)
+        self.active(False)
 
-# === ПИНЫ ДЛЯ ДАТЧИКА ЦВЕТА (I2C) ===
-SCL_pin = 
-SDA_pin = 
+    def _read8(self, reg):
+        reg |= self._COMMAND_BIT
+        return self.i2c.readfrom_mem(self.address, reg, 1)[0]
 
-LED_pin = 
-NUM_LEDS = 
+    def _write8(self, reg, value):
+        reg |= self._COMMAND_BIT
+        self.i2c.writeto_mem(self.address, reg, ustruct.pack('<B', value))
 
-SPEED_FWD =     
-SPEED_TURN =    
+    def _read16(self, reg):
+        reg |= self._COMMAND_BIT
+        data = self.i2c.readfrom_mem(self.address, reg, 2)
+        return ustruct.unpack('<H', data)[0]
 
-GRIP_OPEN = 0      # захват полностью открыт
-GRIP_CLOSE = 90    # захват закрыт 
-LIFT_UP = 0        # груз поднят вверх
-LIFT_DOWN = 90     # груз опущен вниз
+    def active(self, value=None):
+        if value is None:
+            return self._active
+        value = bool(value)
+        if self._active == value:
+            return
+        self._active = value
+        enable = self._read8(self._REG_ENABLE)
+        if value:
+            self._write8(self._REG_ENABLE, enable | self._ENABLE_PON)
+            time.sleep_ms(3)
+            self._write8(self._REG_ENABLE, enable | self._ENABLE_PON | self._ENABLE_AEN)
+        else:
+            self._write8(self._REG_ENABLE, enable & ~(self._ENABLE_PON | self._ENABLE_AEN))
 
-BLE_NAME = "7777777"
+    def integration_time(self, value=None):
+        if value is None:
+            return self._integration_time
+        value = min(614.4, max(2.4, value))
+        cycles = int(value / 2.4)
+        self._integration_time = cycles * 2.4
+        self._write8(self._REG_ATIME, 256 - cycles)
+        return self._integration_time
+
+    def gain(self, value=None):
+        if value is None:
+            return self._GAINS[self._read8(self._REG_CONTROL) & 0x03]
+        if value not in self._GAINS:
+            raise ValueError("Усиление должно быть 1, 4, 16 или 60")
+        self._write8(self._REG_CONTROL, self._GAINS.index(value))
+        return value
+
+    def _valid(self):
+        return bool(self._read8(self._REG_STATUS) & 0x01)
+
+    def read(self, raw=False):
+        was_active = self.active()
+        self.active(True)
+        timeout = 500
+        start = time.ticks_ms()
+        while not self._valid():
+            if time.ticks_diff(time.ticks_ms(), start) > timeout:
+                self.active(was_active)
+                raise RuntimeError("Таймаут TCS34725")
+            time.sleep_ms(1)
+        r = self._read16(self._REG_RDATA)
+        g = self._read16(self._REG_GDATA)
+        b = self._read16(self._REG_BDATA)
+        c = self._read16(self._REG_CDATA)
+        self.active(was_active)
+        if raw:
+            return (r, g, b, c)
+        else:
+            if c == 0:
+                return (0.0, 0.0)
+            x = -0.14282 * r + 1.54924 * g + -0.95641 * b
+            y = -0.32466 * r + 1.57837 * g + -0.73191 * b
+            z = -0.68202 * r + 0.77073 * g + 0.56332 * b
+            d = x + y + z
+            if d == 0:
+                return (0.0, 0.0)
+            n = (x / d - 0.3320) / (0.1858 - y / d)
+            cct = 449.0 * n**3 + 3525.0 * n**2 + 6823.3 * n + 5520.33
+            lux = y / 100.0
+            return (cct, lux)
