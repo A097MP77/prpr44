@@ -237,7 +237,7 @@ def show_color():
 
 _UART_SERVICE = ubluetooth.UUID("6E400001-B5A3-F393-E0A9-E50E24DCCA9E")
 _RX_CHAR = ubluetooth.UUID("6E400002-B5A3-F393-E0A9-E50E24DCCA9E")
-_TX_CHAR = ubluetooth.UUID("")
+_TX_CHAR = ubluetooth.UUID("6E400002-B5A3-F393-E0A9-E50E24DCCA9E")
 
 class BLE_UART:
     def __init__(self, name, callback):
