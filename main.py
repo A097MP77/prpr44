@@ -213,3 +213,22 @@ def set_servo(pin, angle):
     p.duty(duty)
     time.sleep_ms(250)   # время на отработку
     p.deinit()           # отключаем ШИМ (экономия энергии)
+
+# датчик цвета -----------------------------------------------------------------------------------
+
+def read_color():
+    r, g, b, clear = sensor.read(raw=True)
+    if clear == 0:
+        return (0, 0, 0)
+    maxv = max(r, g, b)
+    if maxv > 0:
+        r = int((r / maxv) * 30)
+        g = int((g / maxv) * 30)
+        b = int((b / maxv) * 30)
+    return (r, g, b)
+
+def show_color():
+    col = read_color()
+    ring.fill(col)
+    ring.write()
+    return col
