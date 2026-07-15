@@ -232,3 +232,47 @@ def show_color():
     ring.fill(col)
     ring.write()
     return col
+
+# связь -------------------------------------------------------------------------------------------
+
+_UART_SERVICE = ubluetooth.UUID("6E400001-B5A3-F393-E0A9-E50E24DCCA9E")
+_RX_CHAR = ubluetooth.UUID("6E400002-B5A3-F393-E0A9-E50E24DCCA9E")
+_TX_CHAR = ubluetooth.UUID("")
+
+class BLE_UART:
+    def __init__(self, name, callback):
+        self.name = name
+        self.callback = callback
+        self.ble = ubluetooth.BLE()
+        self.ble.active(True)
+        self.connected = False
+        self.ble.irq(self._irq)
+        self._register()
+        self._advertise()
+
+    def _irq(self, event, data):
+        if event == 1:          
+            self.connected = True
+        elif event == 2:        
+            self.connected = False
+            if self.callback:
+                self.callback('S')   
+            self._advertise()
+        elif event == 3:        # получены данные
+            _, data_type = data
+            if data_type == self.rx_handle:
+                raw = self.ble.gatts_read(self.rx_handle)
+                cmd = raw.decode('utf-8').strip()
+                if cmd and self.callback:
+                    self.callback(cmd)
+
+    def _register(self):
+        rx = (_RX_CHAR, ubluetooth.FLAG_WRITE | ubluetooth.FLAG_WRITE_NO_RESPONSE)
+        tx = (_TX_CHAR, ubluetooth.FLAG_NOTIFY | ubluetooth.FLAG_READ)
+        services = (_UART_SERVICE, (rx, tx),)
+        ((self.tx_handle, self.rx_handle),) = self.ble.gatts_register_services((services,))
+        self.ble.gatts_write(self.tx_handle, b'\x00')
+
+    def _advertise(self):
+        adv = b'\x02\x01\x06' + b'\x03\x03\xAA\xFE' + bytes([len(self.name)+1, 0x09]) + self.name.encode()
+        self.ble.gap_advertise(100, adv)
