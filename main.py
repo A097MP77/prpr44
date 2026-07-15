@@ -193,14 +193,3 @@ def backward(speed=SPEED_FWD):
     pwm_left.duty(speed)
     pwm_right.duty(speed)
 
-def turn_left(speed=SPEED_TURN):
-    ain1.value(0); ain2.value(1)  
-    bin1.value(1); bin2.value(0)  
-    pwm_left.duty(speed)
-    pwm_right.duty(speed)
-
-def turn_right(speed=SPEED_TURN):
-    ain1.value(1); ain2.value(0) 
-    bin1.value(0); bin2.value(1)  
-    pwm_left.duty(speed)
-    pwm_right.duty(speed)
