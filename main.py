@@ -1,8 +1,43 @@
+from machine import Pin, PWM, I2C
 import ubluetooth
 import uasyncio as asyncio
 import neopixel
 import time
 import ustruct
+
+#SETTINGS--------------------------------------------------------------------------------------------
+
+# Левый драйвер (канал A)
+PWMA_pin = 
+AIN1_pin = 
+AIN2_pin = 
+# Правый драйвер (канал B)
+PWMB_pin = 
+BIN1_pin = 
+BIN2_pin = 
+# Общий STBY (включение драйверов)
+STBY_pin = 
+
+# === ПИНЫ ДЛЯ СЕРВОПРИВОДОВ ===
+SERVO_GRIP =    # захват (открытие/закрытие)
+SERVO_LIFT =    # подъём/опускание
+
+# === ПИНЫ ДЛЯ ДАТЧИКА ЦВЕТА (I2C) ===
+SCL_pin = 
+SDA_pin = 
+
+LED_pin = 
+NUM_LEDS = 
+
+SPEED_FWD =     
+SPEED_TURN =    
+
+GRIP_OPEN = 0      # захват полностью открыт
+GRIP_CLOSE = 90    # захват закрыт 
+LIFT_UP = 0        # груз поднят вверх
+LIFT_DOWN = 90     # груз опущен вниз
+
+BLE_NAME = "7777777"
 
 # датчик цвета ----------------------------------------------------------------------------------------
 
@@ -118,3 +153,54 @@ class TCS34725:
             cct = 449.0 * n**3 + 3525.0 * n**2 + 6823.3 * n + 5520.33
             lux = y / 100.0
             return (cct, lux)
+
+# все включаем ----------------------------------------------------------------------
+
+pwm_left = PWM(Pin(PWMA_pin), freq=1900)
+pwm_right = PWM(Pin(PWMB_pin), freq=1900)
+
+ain1 = Pin(AIN1_pin, Pin.OUT)
+ain2 = Pin(AIN2_pin, Pin.OUT)
+bin1 = Pin(BIN1_pin, Pin.OUT)
+bin2 = Pin(BIN2_pin, Pin.OUT)
+
+stby = Pin(STBY_pin, Pin.OUT)
+stby.value(1)   
+
+i2c = I2C(0, scl=Pin(SCL_pin), sda=Pin(SDA_pin), freq=100000)
+sensor = TCS34725(i2c)
+sensor.active(True)
+sensor.integration_time(100) 
+
+ring = neopixel.NeoPixel(Pin(LED_pin), NUM_LEDS)
+
+# движение ----------------------------------------------------------------------------------------
+
+def stop():
+    ain1.value(0); ain2.value(0)
+    bin1.value(0); bin2.value(0)
+    pwm_left.duty(0); pwm_right.duty(0)
+
+def forward(speed=SPEED_FWD):
+    ain1.value(1); ain2.value(0)   
+    bin1.value(1); bin2.value(0)   
+    pwm_left.duty(speed)
+    pwm_right.duty(speed)
+
+def backward(speed=SPEED_FWD):
+    ain1.value(0); ain2.value(1)   
+    bin1.value(0); bin2.value(1)  
+    pwm_left.duty(speed)
+    pwm_right.duty(speed)
+
+def turn_left(speed=SPEED_TURN):
+    ain1.value(0); ain2.value(1)  
+    bin1.value(1); bin2.value(0)  
+    pwm_left.duty(speed)
+    pwm_right.duty(speed)
+
+def turn_right(speed=SPEED_TURN):
+    ain1.value(1); ain2.value(0) 
+    bin1.value(0); bin2.value(1)  
+    pwm_left.duty(speed)
+    pwm_right.duty(speed)
