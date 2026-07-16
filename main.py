@@ -304,3 +304,11 @@ def handle_cmd(cmd):
     else:
         stop()   
 
+
+# ЗАПУСК---------------------------------------------------------------------
+
+ble = BLE_UART(BLE_NAME, handle_cmd)
+print("ready")
+
+loop = asyncio.get_event_loop()
+loop.run_forever()
