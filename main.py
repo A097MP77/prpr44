@@ -237,7 +237,7 @@ def show_color():
 
 _UART_SERVICE = ubluetooth.UUID("6E400001-B5A3-F393-E0A9-E50E24DCCA9E")
 _RX_CHAR = ubluetooth.UUID("6E400002-B5A3-F393-E0A9-E50E24DCCA9E")
-_TX_CHAR = ubluetooth.UUID("6E400002-B5A3-F393-E0A9-E50E24DCCA9E")
+_TX_CHAR = ubluetooth.UUID("6E400003-B5A3-F393-E0A9-E50E24DCCA9E")
 
 class BLE_UART:
     def __init__(self, name, callback):
@@ -276,3 +276,31 @@ class BLE_UART:
     def _advertise(self):
         adv = b'\x02\x01\x06' + b'\x03\x03\xAA\xFE' + bytes([len(self.name)+1, 0x09]) + self.name.encode()
         self.ble.gap_advertise(100, adv)
+
+# обработка ------------------------------------------------------------------------------------------------------
+
+def handle_cmd(cmd):
+    if cmd == 'F':
+        forward()
+    elif cmd == 'B':
+        backward()
+    elif cmd == 'L':
+        turn_left()
+    elif cmd == 'R':
+        turn_right()
+    elif cmd == 'S':
+        stop()
+    elif cmd == 'O':
+        set_servo(SERVO_GRIP, GRIP_OPEN)
+    elif cmd == 'C':
+        set_servo(SERVO_GRIP, GRIP_CLOSE)
+    elif cmd == 'U':
+        set_servo(SERVO_LIFT, LIFT_UP)
+    elif cmd == 'D':
+        set_servo(SERVO_LIFT, LIFT_DOWN)
+    elif cmd == 'G':
+        rgb = show_color()
+        print("Цвет:", rgb)
+    else:
+        stop()   
+
