@@ -18,11 +18,10 @@ BIN2_pin =
 # Общий STBY (включение драйверов)
 STBY_pin = 
 
-# === ПИНЫ ДЛЯ СЕРВОПРИВОДОВ ===
-SERVO_GRIP =    # захват (открытие/закрытие)
+
+SERVO_GRIP =    # захват 
 SERVO_LIFT =    # подъём/опускание
 
-# === ПИНЫ ДЛЯ ДАТЧИКА ЦВЕТА (I2C) ===
 SCL_pin = 
 SDA_pin = 
 
@@ -32,10 +31,10 @@ NUM_LEDS =
 SPEED_FWD =     
 SPEED_TURN =    
 
-GRIP_OPEN = 0      # захват полностью открыт
-GRIP_CLOSE = 90    # захват закрыт 
-LIFT_UP = 0        # груз поднят вверх
-LIFT_DOWN = 90     # груз опущен вниз
+GRIP_OPEN = 0     
+GRIP_CLOSE = 90     
+LIFT_UP = 0        
+LIFT_DOWN = 90     
 
 BLE_NAME = "7777777"
 
@@ -211,8 +210,8 @@ def set_servo(pin, angle):
     duty = int(26 + (angle / 180) * 102)
     p = PWM(Pin(pin), freq=50)
     p.duty(duty)
-    time.sleep_ms(250)   # время на отработку
-    p.deinit()           # отключаем ШИМ (экономия энергии)
+    time.sleep_ms(250)   
+    p.deinit()           
 
 # датчик цвета -----------------------------------------------------------------------------------
 
